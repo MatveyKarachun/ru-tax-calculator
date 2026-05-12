@@ -56,6 +56,8 @@ function TaxPage() {
   const [annualRubIncome, setAnnualRubIncome] = useState(new Decimal(3_600_000))
   const [activeField, setActiveField] = useState<FieldKey | null>(null)
   const [rawInput, setRawInput] = useState('')
+  const [mobilePeriod, setMobilePeriod] = useState<Period>('monthly')
+  const [mobileCurrency, setMobileCurrency] = useState<Currency>('RUB')
   const [regime, setRegime] = useState<TaxRegime>('ndfl')
 
   const loadRates = async () => {
@@ -140,13 +142,13 @@ function TaxPage() {
   }
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+    <section className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
       <div className="mb-6 flex flex-col gap-4 border-b border-zinc-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal-700">
             Приложение
           </p>
-          <h1 className="mt-2 text-4xl font-semibold tracking-normal text-zinc-950 sm:text-5xl">
+          <h1 className="mt-2 text-3xl font-semibold tracking-normal text-zinc-950 sm:text-5xl">
             Калькулятор налогов
           </h1>
         </div>
@@ -154,87 +156,320 @@ function TaxPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="space-y-6">
-          <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-xl font-semibold tracking-normal">
-                Доход до налогов
-              </h2>
-              <div className="flex rounded-md border border-zinc-200 bg-zinc-50 p-1">
-                {TAX_REGIMES.map((item) => (
-                  <button
-                    className={`h-9 rounded px-3 text-sm font-semibold transition ${
-                      regime === item.id
-                        ? 'bg-teal-700 text-white'
-                        : 'text-zinc-600 hover:bg-white hover:text-zinc-950'
-                    }`}
-                    key={item.id}
-                    onClick={() => setRegime(item.id)}
-                    type="button"
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+        <IncomeEditor
+          annualRubIncome={annualRubIncome}
+          fieldValue={fieldValue}
+          mobileCurrency={mobileCurrency}
+          mobilePeriod={mobilePeriod}
+          onInputBlur={() => {
+            setActiveField(null)
+            setRawInput('')
+          }}
+          rates={rates}
+          regime={regime}
+          setMobileCurrency={(currency) => {
+            setActiveField(null)
+            setRawInput('')
+            setMobileCurrency(currency)
+          }}
+          setMobilePeriod={(period) => {
+            setActiveField(null)
+            setRawInput('')
+            setMobilePeriod(period)
+          }}
+          setRegime={setRegime}
+          updateIncome={updateIncome}
+        />
 
-            <div className="overflow-x-auto">
-              <div className="min-w-[680px]">
-                <div className="grid grid-cols-[10rem_repeat(3,minmax(0,1fr))] gap-3 border-b border-zinc-200 pb-2 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
-                  <span>Период</span>
-                  {CURRENCIES.map((currency) => (
-                    <span key={currency}>{CURRENCY_LABELS[currency]}</span>
-                  ))}
-                </div>
-                <div className="space-y-3 pt-3">
-                  {PERIODS.map((period) => (
-                    <div
-                      className="grid grid-cols-[10rem_repeat(3,minmax(0,1fr))] gap-3"
-                      key={period.id}
-                    >
-                      <label className="flex flex-col justify-center">
-                        <span className="font-semibold text-zinc-950">
-                          {period.label}
-                        </span>
-                        <span className="text-xs text-zinc-500">
-                          {period.helper}
-                        </span>
-                      </label>
-                      {CURRENCIES.map((currency) => (
-                        <input
-                          className="h-12 rounded-md border border-zinc-300 bg-white px-3 text-base outline-none transition placeholder:text-zinc-400 focus:border-teal-700 focus:ring-2 focus:ring-teal-700/15 disabled:bg-zinc-100 disabled:text-zinc-400"
-                          disabled={currency !== 'RUB' && !rates}
-                          inputMode="decimal"
-                          key={`${period.id}:${currency}`}
-                          onBlur={() => {
-                            setActiveField(null)
-                            setRawInput('')
-                          }}
-                          onChange={(event) =>
-                            updateIncome(
-                              period.id,
-                              currency,
-                              event.target.value,
-                              rates,
-                            )
-                          }
-                          placeholder={currency === 'RUB' ? '0' : 'курс'}
-                          value={fieldValue(period.id, currency, rates)}
-                        />
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
+        <ResultPanel
+          calculation={calculation}
+          className="lg:col-start-2 lg:row-span-2"
+          rates={rates}
+        />
 
-          <TaxExplanation calculation={calculation} />
-        </div>
-
-        <ResultPanel calculation={calculation} rates={rates} />
+        <TaxExplanation calculation={calculation} />
       </div>
     </section>
+  )
+}
+
+function IncomeEditor({
+  annualRubIncome,
+  fieldValue,
+  mobileCurrency,
+  mobilePeriod,
+  onInputBlur,
+  rates,
+  regime,
+  setMobileCurrency,
+  setMobilePeriod,
+  setRegime,
+  updateIncome,
+}: {
+  annualRubIncome: Decimal
+  fieldValue: (
+    period: Period,
+    currency: Currency,
+    currentRates: ExchangeRates | null,
+  ) => string
+  mobileCurrency: Currency
+  mobilePeriod: Period
+  onInputBlur: () => void
+  rates: ExchangeRates | null
+  regime: TaxRegime
+  setMobileCurrency: (currency: Currency) => void
+  setMobilePeriod: (period: Period) => void
+  setRegime: (regime: TaxRegime) => void
+  updateIncome: (
+    period: Period,
+    currency: Currency,
+    value: string,
+    currentRates: ExchangeRates | null,
+  ) => void
+}) {
+  return (
+    <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 lg:col-start-1">
+      <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <h2 className="text-xl font-semibold tracking-normal">
+          Доход до налогов
+        </h2>
+        <TaxRegimeControl regime={regime} setRegime={setRegime} />
+      </div>
+
+      <div className="space-y-5 md:hidden">
+        <label className="block">
+          <span className="text-sm font-semibold text-zinc-700">
+            Сумма дохода
+          </span>
+          <input
+            className="mt-2 h-14 w-full rounded-md border border-zinc-300 bg-white px-4 text-xl font-semibold outline-none transition placeholder:text-zinc-400 focus:border-teal-700 focus:ring-2 focus:ring-teal-700/15 disabled:bg-zinc-100 disabled:text-zinc-400"
+            disabled={mobileCurrency !== 'RUB' && !rates}
+            inputMode="decimal"
+            onBlur={onInputBlur}
+            onChange={(event) =>
+              updateIncome(
+                mobilePeriod,
+                mobileCurrency,
+                event.target.value,
+                rates,
+              )
+            }
+            placeholder={mobileCurrency === 'RUB' ? '0' : 'курс загружается'}
+            value={fieldValue(mobilePeriod, mobileCurrency, rates)}
+          />
+        </label>
+
+        <SegmentedControl
+          label="Период"
+          options={PERIODS.map((period) => ({
+            id: period.id,
+            label: period.label,
+          }))}
+          value={mobilePeriod}
+          onChange={setMobilePeriod}
+        />
+
+        <SegmentedControl
+          label="Валюта"
+          options={CURRENCIES.map((currency) => ({
+            id: currency,
+            label: CURRENCY_LABELS[currency],
+            disabled: currency !== 'RUB' && !rates,
+          }))}
+          value={mobileCurrency}
+          onChange={setMobileCurrency}
+        />
+
+        <MobileIncomeEquivalents annualRubIncome={annualRubIncome} rates={rates} />
+      </div>
+
+      <DesktopIncomeGrid
+        fieldValue={fieldValue}
+        onInputBlur={onInputBlur}
+        rates={rates}
+        updateIncome={updateIncome}
+      />
+    </section>
+  )
+}
+
+function TaxRegimeControl({
+  regime,
+  setRegime,
+}: {
+  regime: TaxRegime
+  setRegime: (regime: TaxRegime) => void
+}) {
+  return (
+    <div className="grid grid-cols-2 rounded-md border border-zinc-200 bg-zinc-50 p-1 md:flex">
+      {TAX_REGIMES.map((item) => (
+        <button
+          className={`h-11 rounded px-3 text-sm font-semibold transition md:h-9 ${
+            regime === item.id
+              ? 'bg-teal-700 text-white'
+              : 'text-zinc-600 hover:bg-white hover:text-zinc-950'
+          }`}
+          key={item.id}
+          onClick={() => setRegime(item.id)}
+          type="button"
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function SegmentedControl<T extends string>({
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  label: string
+  onChange: (value: T) => void
+  options: Array<{ id: T; label: string; disabled?: boolean }>
+  value: T
+}) {
+  return (
+    <div>
+      <div className="mb-2 text-sm font-semibold text-zinc-700">{label}</div>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(0,1fr))] gap-2">
+        {options.map((option) => (
+          <button
+            className={`h-11 rounded-md border px-3 text-sm font-semibold transition ${
+              value === option.id
+                ? 'border-teal-700 bg-teal-700 text-white'
+                : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50'
+            } disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-100 disabled:text-zinc-400`}
+            disabled={option.disabled}
+            key={option.id}
+            onClick={() => onChange(option.id)}
+            type="button"
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function MobileIncomeEquivalents({
+  annualRubIncome,
+  rates,
+}: {
+  annualRubIncome: Decimal
+  rates: ExchangeRates | null
+}) {
+  const monthlyRubIncome = annualRubIncome.div(12)
+
+  return (
+    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+      <div className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
+        Эквивалент
+      </div>
+      <div className="mt-3 grid gap-2 text-sm">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-zinc-500">За год</span>
+          <span className="font-semibold text-zinc-950">
+            {formatMoney(annualRubIncome, 'RUB')}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-zinc-500">В месяц</span>
+          <span className="font-semibold text-zinc-950">
+            {formatMoney(monthlyRubIncome, 'RUB')}
+          </span>
+        </div>
+        {rates ? (
+          <>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-zinc-500">USD в год</span>
+              <span className="font-semibold text-zinc-950">
+                {formatMoney(convertCurrency(annualRubIncome, 'RUB', 'USD', rates), 'USD')}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-zinc-500">EUR в год</span>
+              <span className="font-semibold text-zinc-950">
+                {formatMoney(convertCurrency(annualRubIncome, 'RUB', 'EUR', rates), 'EUR')}
+              </span>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function DesktopIncomeGrid({
+  fieldValue,
+  onInputBlur,
+  rates,
+  updateIncome,
+}: {
+  fieldValue: (
+    period: Period,
+    currency: Currency,
+    currentRates: ExchangeRates | null,
+  ) => string
+  onInputBlur: () => void
+  rates: ExchangeRates | null
+  updateIncome: (
+    period: Period,
+    currency: Currency,
+    value: string,
+    currentRates: ExchangeRates | null,
+  ) => void
+}) {
+  return (
+    <div className="hidden md:block">
+      <div className="min-w-0">
+        <div className="grid grid-cols-[10rem_repeat(3,minmax(0,1fr))] gap-3 border-b border-zinc-200 pb-2 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
+          <span>Период</span>
+          {CURRENCIES.map((currency) => (
+            <span key={currency}>{CURRENCY_LABELS[currency]}</span>
+          ))}
+        </div>
+        <div className="space-y-3 pt-3">
+          {PERIODS.map((period) => (
+            <div
+              className="grid grid-cols-[10rem_repeat(3,minmax(0,1fr))] gap-3"
+              key={period.id}
+            >
+              <label className="flex flex-col justify-center">
+                <span className="font-semibold text-zinc-950">
+                  {period.label}
+                </span>
+                <span className="text-xs text-zinc-500">
+                  {period.helper}
+                </span>
+              </label>
+              {CURRENCIES.map((currency) => (
+                <input
+                  className="h-12 rounded-md border border-zinc-300 bg-white px-3 text-base outline-none transition placeholder:text-zinc-400 focus:border-teal-700 focus:ring-2 focus:ring-teal-700/15 disabled:bg-zinc-100 disabled:text-zinc-400"
+                  disabled={currency !== 'RUB' && !rates}
+                  inputMode="decimal"
+                  key={`${period.id}:${currency}`}
+                  onBlur={onInputBlur}
+                  onChange={(event) =>
+                    updateIncome(
+                      period.id,
+                      currency,
+                      event.target.value,
+                      rates,
+                    )
+                  }
+                  placeholder={currency === 'RUB' ? '0' : 'курс'}
+                  value={fieldValue(period.id, currency, rates)}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -299,13 +534,15 @@ function formatExchangeRate(value: Decimal): string {
 
 function ResultPanel({
   calculation,
+  className = '',
   rates,
 }: {
   calculation: TaxCalculation
+  className?: string
   rates: ExchangeRates | null
 }) {
   return (
-    <aside className="space-y-3">
+    <aside className={`space-y-3 ${className}`}>
       <MetricCard
         accent="teal"
         label="Чистый доход за год"
@@ -354,7 +591,7 @@ function MetricCard({
   return (
     <div className={`rounded-lg border bg-white p-5 shadow-sm ${accentClass}`}>
       <div className="text-sm text-zinc-500">{label}</div>
-      <div className="mt-2 text-3xl font-semibold tracking-normal text-zinc-950">
+      <div className="mt-2 break-words text-2xl font-semibold tracking-normal text-zinc-950 sm:text-3xl">
         {formatMoney(value, 'RUB')}
       </div>
       {rates ? (
@@ -369,42 +606,87 @@ function MetricCard({
 
 function TaxExplanation({ calculation }: { calculation: TaxCalculation }) {
   return (
-    <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-      <h2 className="text-xl font-semibold tracking-normal">Расчет налога</h2>
-      <div className="mt-5 overflow-x-auto">
-        <table className="w-full min-w-[620px] border-collapse text-left text-sm">
-          <thead>
-            <tr className="border-b border-zinc-200 text-xs uppercase tracking-[0.12em] text-zinc-500">
-              <th className="py-3 pr-4 font-semibold">Диапазон</th>
-              <th className="py-3 pr-4 font-semibold">База</th>
-              <th className="py-3 pr-4 font-semibold">Ставка</th>
-              <th className="py-3 font-semibold">Налог</th>
-            </tr>
-          </thead>
-          <tbody>
-            {calculation.rows.map((row) => (
-              <tr className="border-b border-zinc-100" key={row.label}>
-                <td className="py-3 pr-4 text-zinc-700">{row.label}</td>
-                <td className="py-3 pr-4 text-zinc-950">
-                  {formatMoney(row.taxableIncome, 'RUB')}
-                </td>
-                <td className="py-3 pr-4 text-zinc-950">
-                  {formatPercent(row.rate)}
-                </td>
-                <td className="py-3 font-semibold text-zinc-950">
-                  {formatMoney(row.tax, 'RUB')}
-                </td>
+    <>
+      <details className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm md:hidden">
+        <summary className="cursor-pointer text-lg font-semibold tracking-normal text-zinc-950 marker:text-zinc-500">
+          Расчет налога
+        </summary>
+        <div className="mt-4 space-y-3">
+          {calculation.rows.map((row) => (
+            <div
+              className="rounded-md border border-zinc-200 bg-zinc-50 p-3"
+              key={row.label}
+            >
+              <div className="font-semibold text-zinc-950">{row.label}</div>
+              <div className="mt-3 grid gap-2 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-zinc-500">База</span>
+                  <span className="font-medium text-zinc-950">
+                    {formatMoney(row.taxableIncome, 'RUB')}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-zinc-500">Ставка</span>
+                  <span className="font-medium text-zinc-950">
+                    {formatPercent(row.rate)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-zinc-500">Налог</span>
+                  <span className="font-semibold text-zinc-950">
+                    {formatMoney(row.tax, 'RUB')}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <TaxNotes notes={calculation.notes} />
+      </details>
+
+      <section className="hidden rounded-lg border border-zinc-200 bg-white p-5 shadow-sm md:block lg:col-start-1">
+        <h2 className="text-xl font-semibold tracking-normal">Расчет налога</h2>
+        <div className="mt-5 overflow-x-auto">
+          <table className="w-full min-w-[620px] border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-zinc-200 text-xs uppercase tracking-[0.12em] text-zinc-500">
+                <th className="py-3 pr-4 font-semibold">Диапазон</th>
+                <th className="py-3 pr-4 font-semibold">База</th>
+                <th className="py-3 pr-4 font-semibold">Ставка</th>
+                <th className="py-3 font-semibold">Налог</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="mt-5 grid gap-2 text-sm leading-6 text-zinc-600">
-        {calculation.notes.map((note) => (
-          <p key={note}>{note}</p>
-        ))}
-      </div>
-    </section>
+            </thead>
+            <tbody>
+              {calculation.rows.map((row) => (
+                <tr className="border-b border-zinc-100" key={row.label}>
+                  <td className="py-3 pr-4 text-zinc-700">{row.label}</td>
+                  <td className="py-3 pr-4 text-zinc-950">
+                    {formatMoney(row.taxableIncome, 'RUB')}
+                  </td>
+                  <td className="py-3 pr-4 text-zinc-950">
+                    {formatPercent(row.rate)}
+                  </td>
+                  <td className="py-3 font-semibold text-zinc-950">
+                    {formatMoney(row.tax, 'RUB')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <TaxNotes notes={calculation.notes} />
+      </section>
+    </>
+  )
+}
+
+function TaxNotes({ notes }: { notes: string[] }) {
+  return (
+    <div className="mt-5 grid gap-2 text-sm leading-6 text-zinc-600">
+      {notes.map((note) => (
+        <p key={note}>{note}</p>
+      ))}
+    </div>
   )
 }
 
