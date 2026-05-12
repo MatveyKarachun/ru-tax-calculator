@@ -1,0 +1,19 @@
+{
+  "name": "Калькулятор налогов РФ",
+  "short_name": "Налоги РФ",
+  "description": "Калькулятор налогов и чистого дохода: НДФЛ РФ и ИП 6%.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f4f5",
+  "theme_color": "#0f766e",
+  "lang": "ru-RU",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
