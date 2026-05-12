@@ -2,7 +2,11 @@ import Decimal from 'decimal.js'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import { useEffect, useMemo, useState } from 'react'
-import { fetchExchangeRates, type RatesState } from './features/rates/rates'
+import {
+  fetchExchangeRates,
+  loadCachedExchangeRates,
+  type RatesState,
+} from './features/rates/rates'
 import {
   CURRENCIES,
   CURRENCY_LABELS,
@@ -65,8 +69,20 @@ function TaxPage() {
 
     try {
       const { rates, date } = await fetchExchangeRates()
-      setRatesState({ status: 'ready', rates, date, error: null })
+      setRatesState({ status: 'ready', rates, date, source: 'network', error: null })
     } catch (error) {
+      const cachedRates = loadCachedExchangeRates()
+      if (cachedRates) {
+        setRatesState({
+          status: 'ready',
+          rates: cachedRates.rates,
+          date: cachedRates.date,
+          source: 'cache',
+          error: null,
+        })
+        return
+      }
+
       setRatesState({
         status: 'error',
         rates: null,
@@ -482,7 +498,9 @@ function RatesStatus({
 }) {
   const text =
     state.status === 'ready'
-      ? `Курс ЦБ: ${new Date(state.date).toLocaleDateString('ru-RU')}`
+      ? `${
+          state.source === 'cache' ? 'Сохраненный курс' : 'Курс ЦБ'
+        }: ${new Date(state.date).toLocaleDateString('ru-RU')}`
       : state.status === 'loading'
         ? 'Курс загружается'
         : state.error
