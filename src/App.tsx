@@ -1,4 +1,6 @@
 import Decimal from 'decimal.js'
+import { Analytics } from '@vercel/analytics/react'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 import { useEffect, useMemo, useState } from 'react'
 import { fetchExchangeRates, type RatesState } from './features/rates/rates'
 import {
@@ -38,6 +40,8 @@ function App() {
       <main>
         <TaxPage />
       </main>
+      <Analytics />
+      <SpeedInsights />
     </div>
   )
 }

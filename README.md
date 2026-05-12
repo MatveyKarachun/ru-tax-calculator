@@ -14,6 +14,12 @@ npm run build
 npm test
 ```
 
+## Аналитика и индексация
+
+- Vercel Web Analytics подключена через `@vercel/analytics`.
+- Vercel Speed Insights подключен через `@vercel/speed-insights`.
+- Для Google Search Console и Yandex Webmaster нужно добавить сайт в их кабинетах и подтвердить владение доменом. Если выбираешь подтверждение через meta tag, добавь выданные сервисами значения в `index.html`.
+
 ## Технологии
 
 - Vite
